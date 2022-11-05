@@ -77,8 +77,12 @@ func GetAllInfo() ([]*DistroInfo, error) {
 	return infos, nil
 }
 
-func Shutdown() error {
-	return wslcli.Shutdown()
+func GetWslHosts() (string, error) {
+	return wslcli.GetWslHosts()
+}
+
+func WriteWslHosts(fileContents string) error {
+	return wslcli.WriteWslHosts(fileContents)
 }
 
 // GetDefaultDistro returns the info for the default distro

@@ -1,7 +1,7 @@
 # go-wsl2-host
 
 > As of v0.2.0, I've dropped support for `windows.local`, if this was important let me know and I can add it back in.
-
+>
 > Unable to enter your username? Having trouble starting the service? See [issue #10](https://github.com/shayne/go-wsl2-host/issues/10#issuecomment-562631992)
 
 A workaround for accessing the WSL2 VM from the Windows host.
@@ -16,7 +16,7 @@ To install and run, download a binary from the releases tab. Place it somewhere 
 
 Open an **elevated/administrator** command prompt:
 
-```
+```sh
 > .\wsl2host.exe install
 Windows Username: <username-you-use-to-login-to-windows>
 Windows Password: <password-for-this-user>
@@ -32,7 +32,7 @@ _NOTE: Upgrading Windows Insider will remove the service, but not cleanly. To re
 
 Open an **elevated/administrator** command prompt:
 
-```
+```sh
 > .\wsl2host.exe remove
 ```
 
@@ -41,7 +41,15 @@ Open an **elevated/administrator** command prompt:
 As of v0.3 you can now specify aliases that point to your WSL2 VM IP. Having `some.client.local`, may be useful in your development workflow.
 
 To do this, create the file `~/.wsl2hosts` in your default WSL2 distro. Host names are space separated:
-```
+
+```sh
 some.client.local my-app.local wsl.local
 ```
 
+## Development
+
+To build, run:
+
+```sh
+ .\build.bat
+```

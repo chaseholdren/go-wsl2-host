@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/shayne/go-wsl2-host/cmd/wsl2host/internal"
+	"github.com/shayne/go-wsl2-host/cmd/wsl2host/pkg/service"
+	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc"
 )
 
@@ -19,6 +21,8 @@ func usage(errmsg string) {
 		errmsg, os.Args[0])
 	os.Exit(2)
 }
+
+var elog debug.Log
 
 func main() {
 	const svcName = "wsl2host"
@@ -53,6 +57,13 @@ func main() {
 		err = internal.ControlService(svcName, svc.Pause, svc.Paused)
 	case "continue":
 		err = internal.ControlService(svcName, svc.Continue, svc.Running)
+	case "run":
+		elog = debug.New("[elog]")
+		defer elog.Close()
+		err = service.Run(elog)
+		if err != nil {
+			elog.Error(1, fmt.Sprintf("%v", err))
+		}
 	default:
 		usage(fmt.Sprintf("invalid command %s", cmd))
 	}

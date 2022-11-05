@@ -28,6 +28,38 @@ func RunningDistros() ([]string, error) {
 	return strings.Split(decoded, "\r\n"), nil
 }
 
+func GetWslHosts() (string, error) {
+	cmd := exec.Command("wsl.exe", "cat", "/etc/hosts")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("wsl cat /etc/hosts failed: %w", err)
+	}
+	decoded, err := decodeOutput(out)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode output: %w", err)
+	}
+	return decoded, nil
+}
+
+func WriteWslHosts(fileContents string) error {
+	// cmd := exec.Command("wsl.exe", "cat", "/etc/hosts")
+	// out, err := cmd.Output()
+	// if err != nil {
+	// 	return "", fmt.Errorf("wsl cat /etc/hosts failed: %w", err)
+	// }
+	cmd := exec.Command("wsl.exe")
+	_, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("wsl cat /etc/hosts failed: %w", err)
+	}
+	cmd = exec.Command("echo", fileContents, ">", "/etc/hosts")
+	_, err = cmd.Output()
+	if err != nil {
+		return fmt.Errorf("wsl cat /etc/hosts failed: %w", err)
+	}
+	return nil
+}
+
 // ListAll returns output for "wsl.exe -l -v"
 func ListAll() (string, error) {
 	cmd := exec.Command("wsl.exe", "-l", "-v")
@@ -236,7 +268,7 @@ func AddHostIP(distro string, host string, ip string) error {
 
 /// Use the sed "d" command to delete line
 func DeleteHost(distro string, host string) error {
-	cmd := exec.Command("wsl.exe", "-d", distro, "--", "sed", "-i", fmt.Sprintf("/%s$/d", host), "/etc/hosts")
+	cmd := exec.Command("wsl.exe", "-d", distro, "-u", "root", "--", "sed", "-i", fmt.Sprintf("/%s$/d", host), "/etc/hosts")
 	_, err := cmd.Output()
 	if err != nil {
 		return err

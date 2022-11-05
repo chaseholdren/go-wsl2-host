@@ -24,7 +24,6 @@ type HostEntry struct {
 // HostsAPI data structure
 type HostsAPI struct {
 	filter    string
-	hostsfile *os.File
 	entries   map[string]*HostEntry
 	remidxs   map[int]interface{}
 }
@@ -75,57 +74,38 @@ func parseHostfileLine(idx int, line string) ([]*HostEntry, error) {
 	return entries, nil
 }
 
-func (h *HostsAPI) loadAndParse() error {
-	scanner := bufio.NewScanner(h.hostsfile)
-	idx := 0
-	for scanner.Scan() {
-		line := scanner.Text()
-		entries, err := parseHostfileLine(idx, line)
-		idx++
-		if err != nil {
-			// log.Println(err) // debug
-			continue
-		}
-		for _, e := range entries {
-			if h.filter == "" || strings.Contains(e.Comment, h.filter) {
-				h.entries[e.Hostname] = e
-				h.remidxs[e.idx] = nil
-			}
-		}
-	}
-	h.hostsfile.Seek(0, 0)
-	return nil
-}
+// func (h *HostsAPI) loadAndParse() error {
+// 	scanner := bufio.NewScanner(h.hostsfile)
+// 	idx := 0
+// 	for scanner.Scan() {
+// 		line := scanner.Text()
+// 		entries, err := parseHostfileLine(idx, line)
+// 		idx++
+// 		if err != nil {
+// 			// log.Println(err) // debug
+// 			continue
+// 		}
+// 		for _, e := range entries {
+// 			if h.filter == "" || strings.Contains(e.Comment, h.filter) {
+// 				h.entries[e.Hostname] = e
+// 				h.remidxs[e.idx] = nil
+// 			}
+// 		}
+// 	}
+// 	h.hostsfile.Seek(0, 0)
+// 	return nil
+// }
 
 // CreateAPI creates a new instance of the hosts file API
 // Call Close() when finished
 // `filter` proves ability to filter by string contains
 func CreateAPI(filter string) (*HostsAPI, error) {
-	f, err := os.Open(hostspath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open hosts file: %w", err)
-	}
 	h := &HostsAPI{
 		filter:    filter,
 		remidxs:   make(map[int]interface{}),
 		entries:   make(map[string]*HostEntry),
-		hostsfile: f,
-	}
-	err = h.loadAndParse()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse hosts file: %w", err)
 	}
 	return h, nil
-}
-
-// Close closes the hosts file
-func (h *HostsAPI) Close() error {
-	err := h.hostsfile.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close hosts file: %w", err)
-	}
-
-	return nil
 }
 
 // Entries returns parsed entries of host file
@@ -156,28 +136,131 @@ func (h *HostsAPI) AddEntry(entry *HostEntry) error {
 
 // Write
 func (h *HostsAPI) Write() error {
+
 	var outbuf bytes.Buffer
 
-	// first remove all current entries
-	scanner := bufio.NewScanner(h.hostsfile)
-	for idx := 0; scanner.Scan() == true; idx++ {
-		line := scanner.Text()
-		if _, exists := h.remidxs[idx]; !exists {
-			outbuf.WriteString(line)
-			outbuf.WriteString("\r\n")
-		}
+	f, err := os.Open(hostspath)
+
+	if err != nil {
+		return fmt.Errorf("failed to open hosts file: %w", err)
 	}
+
+	// first remove all current entries
+	// scanner := bufio.NewScanner(h.hostsfile)
+	// for idx := 0; scanner.Scan() == true; idx++ {
+	// 	line := scanner.Text()
+	// 	if _, exists := h.remidxs[idx]; !exists {
+	// 		outbuf.WriteString(line)
+	// 		outbuf.WriteString("\r\n")
+	// 	}
+	// }
 
 	// append entries to file
-	for _, e := range h.entries {
-		var comment string
-		if e.Comment != "" {
-			comment = fmt.Sprintf("    # %s", e.Comment)
+	// for _, e := range h.entries {
+	// 	var comment string
+	// 	if e.Comment != "" {
+	// 		comment = fmt.Sprintf("    # %s", e.Comment)
+	// 	}
+	// 	outbuf.WriteString(fmt.Sprintf("%s %s%s\r\n", e.IP, e.Hostname))
+	// }
+
+
+	scanner := bufio.NewScanner(f)
+	inSection := false
+	for idx := 0; scanner.Scan() == true; idx++ {
+
+		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		if strings.Contains(line, "# go-wsl2-host's room - stay out") {
+			inSection = true
+			continue
 		}
-		outbuf.WriteString(fmt.Sprintf("%s %s%s\r\n", e.IP, e.Hostname, comment))
+
+		if inSection && strings.Contains(line, "# ok now you can come in :)") {
+			inSection = false
+			continue
+		}
+
+		if !inSection {
+			if len(line) == 0 {
+				outbuf.WriteString(line)
+				outbuf.WriteString("\r\n")
+				continue
+			}
+
+
+			if line[0] == '#' {
+				outbuf.WriteString(line)
+				outbuf.WriteString("\r\n")
+				continue
+			}
+		}
+
+		entries, err := parseHostfileLine(idx, line)
+		if err != nil {
+			continue
+		}
+
+		if !inSection {
+			// lineEntries := make([]HostEntry, 0)
+			var lineEntries []*HostEntry
+			mustRewrite := false
+			for _, e := range entries {
+				if !mustRewrite && h.entries[e.Hostname] != nil {
+					mustRewrite = true
+				} else {
+					lineEntries = append(lineEntries, e)
+				}
+			}
+
+			if mustRewrite {
+				hostNames := make([]string, len(lineEntries))
+				for j, e := range lineEntries {
+					hostNames[j] = e.Hostname
+				}
+				hostNameString := strings.Join(hostNames, " ")
+				line = fmt.Sprintf("%s %s %s\r\n", lineEntries[0].IP, hostNameString, lineEntries[0].Comment)
+			}
+
+			outbuf.WriteString(line)
+			outbuf.WriteString("\r\n")
+			continue
+		}
+
+		for _, e := range entries {
+			if h.entries[e.Hostname] == nil {
+				h.entries[e.Hostname] = e
+			}
+		}
+
+		idx++
 	}
 
-	f, err := os.OpenFile(hostspath, os.O_WRONLY|os.O_TRUNC, 0600)
+	outbuf.WriteString("# go-wsl2-host's room - stay out\r\n")
+
+	for _, e := range h.entries {
+		if len(e.IP) > 0 {
+			var comment string
+			if e.Comment != "" && e.Comment[0] != '#' {
+				comment = fmt.Sprintf("    # %s", e.Comment)
+			}
+			comment = ""
+			line := fmt.Sprintf("%s %s %s\r\n", e.IP, e.Hostname, comment)
+			outbuf.WriteString(line)
+		}
+	}
+
+	outbuf.WriteString("# ok now you can come in :)\r\n")
+
+	// f.Seek(0, 0)
+
+	f.Close()
+
+
+	//
+
+	f, err = os.OpenFile(hostspath, os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open hosts file for writing: %w", err)
 	}

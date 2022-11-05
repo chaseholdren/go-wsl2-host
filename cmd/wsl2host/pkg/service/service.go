@@ -30,6 +30,7 @@ func distroNameToHostname(distroname string) string {
 
 // Run main entry point to service logic
 func Run(elog debug.Log) error {
+		 elog.Info(1, "starting wsl2host ")
 	// Then get all wsl info. and run them with config.
 	infos, err := wslapi.GetAllInfo()
 	if err != nil {
@@ -41,6 +42,11 @@ func Run(elog debug.Log) error {
 	if err != nil {
 		elog.Error(1, fmt.Sprintf("failed to update host IP info: %s", err))
 	}
+
+	// err = updateDistroIP(elog, infos)
+	// if err != nil {
+	// 	elog.Error(1, fmt.Sprintf("failed to update distro IP info: %s", err))
+	// }
 
 	for _, i := range infos {
 		if i.Running {
@@ -56,6 +62,11 @@ func Run(elog debug.Log) error {
 	}
 	return nil
 }
+
+// func updateDistroIP(elog debug.Log, distros []*wslapi.DistroInfo, distroname string) error {
+// 	 info, err:= wslapi.GetWslHosts()
+// 	 elog.Info(1, fmt.Sprintf("updated distro IP info: %s", info))
+// }
 
 func updateHostIP(elog debug.Log, distros []*wslapi.DistroInfo) error {
 	// update the ip to the wsl
@@ -151,7 +162,7 @@ func updateHostIP(elog debug.Log, distros []*wslapi.DistroInfo) error {
 
 	hostIP, err := hostsapi.GetHostIP()
 
-	if err == nil {
+	if err == nil && len(hostIP) > 0 {
 		hostname, err := os.Hostname()
 		hostAlias := distroNameToHostname(hostname)
 		err = hapi.AddEntry(&hostsapi.HostEntry{
@@ -164,6 +175,36 @@ func updateHostIP(elog debug.Log, distros []*wslapi.DistroInfo) error {
 			updated = true
 		}
 	}
+
+	hostentries = hapi.Entries()
+
+	if defdistro.Running {
+		for hostname := range hostentries {
+			err = wslapi.DeleteHost(defdistro.Name, hostname)
+			if err != nil {
+				elog.Info(1, fmt.Sprintf("failed: wsl.exe -d %s -u root -- sed -i %s /etc/hosts", defdistro.Name, fmt.Sprintf("/%s$/d", hostname)))
+			}
+			err = wslapi.AddOrUpdateHostIP(defdistro.Name, hostname, defdistroip)
+			if err != nil {
+				elog.Info(1, fmt.Sprintf("failed to add or update host: %s %s", defdistro.Name, hostname))
+				return err
+			}
+		}
+	}
+
+	// if defdistro.Running {
+	// 	for hostname := range aliasmap {
+	// 		err = wslapi.DeleteHost(defdistro.Name, hostname)
+	// 		if err != nil {
+	// 			elog.Info(1, fmt.Sprintf("failed: wsl.exe -d %s -u root -- sed -i %s /etc/hosts", defdistro.Name, fmt.Sprintf("/%s$/d", hostname)))
+	// 		}
+	// 		err = wslapi.AddOrUpdateHostIP(defdistro.Name, hostname, defdistroip)
+	// 		if err != nil {
+	// 			elog.Info(1, fmt.Sprintf("failed to add or update host: %s %s", defdistro.Name, hostname))
+	// 			return err
+	// 		}
+	// 	}
+	// }
 
 	if updated {
 		err = hapi.Write()
@@ -192,7 +233,7 @@ func updateDistroIP(elog debug.Log, distros []*wslapi.DistroInfo, distro string)
 	}
 
 	for _, dist := range distros {
-		if !dist.Running || dist.Name == distro {
+		if !dist.Running {
 			continue
 		}
 		hostAlias := distroNameToHostname(dist.Name)
