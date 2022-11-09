@@ -214,7 +214,7 @@ func (h *HostsAPI) Write() error {
 				}
 			}
 
-			if mustRewrite {
+			if mustRewrite && len(lineEntries) > 0 {
 				hostNames := make([]string, len(lineEntries))
 				for j, e := range lineEntries {
 					hostNames[j] = e.Hostname

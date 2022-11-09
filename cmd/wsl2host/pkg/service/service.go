@@ -40,7 +40,7 @@ func Run(elog debug.Log) error {
 
 	err = updateHostIP(elog, infos)
 	if err != nil {
-		elog.Error(1, fmt.Sprintf("failed to update host IP info: %s", err))
+		elog.Error(1, fmt.Sprintf("failed to update host IP info: %s\r\n", err))
 	}
 
 	// err = updateDistroIP(elog, infos)
@@ -186,7 +186,7 @@ func updateHostIP(elog debug.Log, distros []*wslapi.DistroInfo) error {
 			}
 			err = wslapi.AddOrUpdateHostIP(defdistro.Name, hostname, defdistroip)
 			if err != nil {
-				elog.Info(1, fmt.Sprintf("failed to add or update host: %s %s", defdistro.Name, hostname))
+				elog.Info(1, fmt.Sprintf("failed to add or update host: %s %s\r\n", defdistro.Name, hostname))
 				return err
 			}
 		}

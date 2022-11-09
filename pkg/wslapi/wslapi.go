@@ -3,6 +3,7 @@ package wslapi
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -92,7 +93,7 @@ func GetDefaultDistro() (*DistroInfo, error) {
 		return nil, fmt.Errorf("GetAllInfo failed: %w", err)
 	}
 	for _, i := range infos {
-		if i.Default == true {
+		if i.Default {
 			return i, nil
 		}
 	}
@@ -143,7 +144,7 @@ func GetHostAliases() ([]string, error) {
 	if out == "" {
 		return nil, fmt.Errorf("no host aliases")
 	}
-	return strings.Split(out, " "), nil
+	return regexp.MustCompile(`\s+`).Split(out, -1), nil
 }
 
 func GetHostIP(distro string, host string) (string, error) {
